@@ -1,12 +1,16 @@
 // GET /api/krathongs — กระทงล่าสุด · POST /api/krathongs (multipart/form-data) — ลอยกระทงใหม่ แนบรูป/วิดีโอได้ (ฟิลด์ media)
-import { defineRoute, status } from '@core/route'
+import { defineRoute, status, type RouteContext } from '@core/route'
 import { t } from '@core/schema'
-import { COLORS, DECOS, MODELS, add, latest } from '../lib/krathong'
+import { COLORS, DECOS, MODELS, add, latest, random } from '../lib/krathong'
 import { MediaError, mediaMessages, removeMedia, saveMedia } from '../lib/media'
 
 const oneOf = (values: readonly string[]) => t.Union(values.map((v) => t.Literal(v)) as any)
 
-export const GET = () => latest()
+// ?random=N (1–30) สุ่มจากกระทงทั้งหมด · ไม่ใส่ = 60 อันล่าสุด
+export const GET = ({ query }: RouteContext) => {
+  const n = Math.min(30, Math.floor(Number(query.random)))
+  return n >= 1 ? random(n) : latest()
+}
 
 // กันรัวลอย/อัปโหลดรัว ต่อ IP: ไม่เกิน 6 อัน/นาที และ 40 อัน/ชั่วโมง (นับใน memory ของ process นี้ · ตั้งได้ด้วย env)
 // ส่วนคำขอทั่วไปทุก path จำกัดที่ createApp (RATE_LIMIT, ค่าเริ่มต้น 300 ครั้ง/นาที/IP)

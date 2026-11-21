@@ -30,7 +30,11 @@ const FIELDS = 'id, name, wish, color, model, deco, media, media_kind'
 export const latest = (n = 60) =>
   (db.query(`SELECT ${FIELDS} FROM krathongs ORDER BY id DESC LIMIT ?`).all(n) as Row[]).map(view)
 
-export const add = (name: string, wish: string, color: string, model: string, deco: string, media?: { file: string; kind: MediaKind }) =>
+/** กระทงจริงสุ่มจากทั้งหมด n อัน (ให้หน้าเว็บหมุนเวียนแสดงได้ครบเมื่อมีมากกว่าที่แสดงพร้อมกัน) */
+export const random = (n: number) =>
+  (db.query(`SELECT ${FIELDS} FROM krathongs ORDER BY RANDOM() LIMIT ?`).all(n) as Row[]).map(view)
+
+export const add =(name: string, wish: string, color: string, model: string, deco: string, media?: { file: string; kind: MediaKind }) =>
   view(db.query(`INSERT INTO krathongs (name, wish, color, model, deco, media, media_kind) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING ${FIELDS}`)
     .get(name, wish, color, model, deco, media?.file ?? null, media?.kind ?? null) as Row)
 

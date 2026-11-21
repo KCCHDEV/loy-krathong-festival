@@ -186,10 +186,12 @@ if (renderer) {
     return g
   }
 
-  const items = [], seen = new Set()
+  const items = [], seen = new Set() // seen = id ที่กำลังอยู่ในฉาก · polled = id ที่เคยมากับ "ล่าสุด" (กันกระทงที่ถูกถอนไปแล้วกลับมาเป็นของใหม่)
+  const polled = new Set(), MAX_ACTIVE = 60, pool = []
+  let totalReal = 0, refilling = false, spawnTimer = 0
   const rnd = (id, k) => { const x = Math.sin(id * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x) } // สุ่มคงที่ตาม id: รีโหลดแล้วตำแหน่งเดิม
 
-  function add(k, fresh) {
+  function add(k, fresh, x0) {
     if (seen.has(k.id)) return
     seen.add(k.id)
     const g = buildKrathong(k.color, k.model, k.deco); scene.add(g)
@@ -197,11 +199,36 @@ if (renderer) {
     labels.appendChild(label)
     const it = {
       info: k, g, label, born: fresh ? performance.now() : -1e9, media: k.media ? makeBillboard(k) : null,
-      x: fresh ? -4 : (rnd(k.id, 1) - 0.5) * 68, z: fresh ? 1 : -3 - rnd(k.id, 2) * 22,
+      x: x0 ?? (fresh ? -4 : (rnd(k.id, 1) - 0.5) * 68), z: fresh ? 1 : -3 - rnd(k.id, 2) * 22,
       v: 0.35 + rnd(k.id, 3) * 0.45, ph: rnd(k.id, 4) * 6.28, spin: (rnd(k.id, 5) - 0.5) * 0.15,
     }
     g.userData.item = it; if (it.media) it.media.grp.userData.item = it // ให้ raycast หา item จาก mesh ที่ถูกคลิกได้
     items.push(it)
+  }
+
+  /* ---------- สุ่มกระทงจริงจากทั้งหมดมาลอยหมุนเวียน ให้ได้เห็นครบทุกอัน (เมื่อมีมากกว่าที่แสดงพร้อมกัน) ---------- */
+  function retire(k) { // ถอนกระทงที่ลอยพ้นฉากออก (geometry/วัสดุส่วนใหญ่ใช้ร่วมกัน ปล่อยเฉพาะที่สร้างใหม่ต่อกระทง)
+    items.splice(items.indexOf(k), 1); seen.delete(k.info.id)
+    scene.remove(k.g); k.g.traverse((o) => { if (o.isSprite) o.material.dispose() })
+    k.label?.remove()
+    const b = k.media
+    if (b) {
+      scene.remove(b.grp)
+      if (b.video) { b.video.pause(); b.video.removeAttribute('src'); b.video.load() }
+      b.pic.material.map?.dispose(); b.pic.material.dispose()
+    }
+  }
+  async function refillPool() {
+    if (refilling) return
+    refilling = true
+    try { pool.push(...(await (await fetch('/api/krathongs?random=20')).json())) } catch {}
+    refilling = false
+  }
+  function spawnRandom() { // ปล่อยกระทงจริงที่ยังไม่อยู่ในฉากเข้ามาจากต้นน้ำ
+    if (items.length >= MAX_ACTIVE || totalReal <= seen.size) return
+    const i = pool.findIndex((k) => !seen.has(k.id))
+    if (i < 0) { pool.length = 0; refillPool(); return }
+    add(pool.splice(i, 1)[0], false, -34)
   }
 
 
@@ -354,9 +381,15 @@ if (renderer) {
     updateWeatherFx(dt, t)
 
     let videos = 0
+    for (let n = items.length - 1; n >= 0; n--) if (items[n].retire) retire(items[n])
+    spawnTimer += dt
+    if (spawnTimer > 2.5) { spawnTimer = 0; spawnRandom() }
     for (const k of items) {
       k.x += k.v * env.drift * dt
-      if (k.x > 34) { k.x = -34; k.z = -3 - Math.random() * 22 } // กระทงจริงทุกอันวนกลับต้นน้ำ (ช่วงที่กล้องมองเห็น) เปลี่ยนเลนใหม่
+      if (k.x > 34) { // ลอยพ้นฉาก: ถ้ายังมีกระทงอื่นที่ไม่ได้แสดง ให้ถอนออกเพื่อสุ่มอันใหม่มาแทน ไม่งั้นวนกลับต้นน้ำเลนใหม่
+        if (totalReal > items.length) k.retire = true
+        else { k.x = -34; k.z = -3 - Math.random() * 22 }
+      }
       const age = (now - k.born) / 1000, drop = age < 1.2 ? 1 - age / 1.2 : 0 // กระทงใหม่หล่นลงน้ำ
       const y = waveJS(k.x, k.z, t) + 0.08 + drop * drop * 5
       k.g.position.set(k.x, y, k.z)
@@ -395,14 +428,20 @@ if (renderer) {
   /* ---------- ข้อมูลจาก API ---------- */
   // ดึงกระทงของทุกคนทุก 10 วินาที (กระทงใหม่ของคนอื่นหล่นลงน้ำเอง)
   const load = async (fresh) => {
-    try { (await (await fetch('/api/krathongs')).json()).reverse().forEach((k) => add(k, fresh)) } catch {}
+    try {
+      for (const k of (await (await fetch('/api/krathongs')).json()).reverse()) {
+        if (polled.has(k.id)) continue
+        polled.add(k.id); add(k, fresh)
+      }
+    } catch {}
   }
   const countEl = document.getElementById('count')
   const n = (v) => v.toLocaleString('th-TH')
   const loadCount = async () => {
     try {
       const s = await (await fetch('/api/stats')).json()
-      countEl.textContent = `🪔 ลอยแล้ว ${n(s.krathongs)} กระทง${s.krathongs > seen.size ? ` (แสดง ${n(seen.size)} ล่าสุด)` : ''} ·👀 วันนี้ ${n(s.visitorsToday)} คน · เข้าชมรวม ${n(s.views)} ครั้ง · 🟢 ออนไลน์ ${n(s.online)}`
+      totalReal = s.krathongs
+      countEl.textContent = `🪔 ลอยแล้ว ${n(s.krathongs)} กระทง${s.krathongs > MAX_ACTIVE ? ` (สุ่มแสดงทีละ ${MAX_ACTIVE})` : ''} · 👀 วันนี้ ${n(s.visitorsToday)} คน · เข้าชมรวม ${n(s.views)} ครั้ง · 🟢 ออนไลน์ ${n(s.online)}`
     } catch {}
   }
   fetch('/api/visit', { method: 'POST' }).catch(() => {}).finally(loadCount) // นับการเปิดหน้า 1 ครั้ง แล้วค่อยแสดงตัวเลข
@@ -453,7 +492,7 @@ if (renderer) {
       if (file) fd.append('media', await prepare(file))
       const r = await fetch('/api/krathongs', { method: 'POST', body: fd })
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error)
-      add(await r.json(), true); form.wish.value = ''; form.media.value = ''; fileName.textContent = FILE_HINT
+      const mine = await r.json(); polled.add(mine.id); add(mine, true); form.wish.value = ''; form.media.value = ''; fileName.textContent = FILE_HINT
     } catch (err) { msg.textContent = err?.message || 'ลอยไม่สำเร็จ ลองใหม่อีกครั้ง' }
     btn.disabled = false
   }

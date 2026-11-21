@@ -197,26 +197,13 @@ if (renderer) {
     labels.appendChild(label)
     const it = {
       info: k, g, label, born: fresh ? performance.now() : -1e9, media: k.media ? makeBillboard(k) : null,
-      x: fresh ? -4 : (rnd(k.id, 1) - 0.5) * 90, z: fresh ? 1 : -3 - rnd(k.id, 2) * 22,
+      x: fresh ? -4 : (rnd(k.id, 1) - 0.5) * 68, z: fresh ? 1 : -3 - rnd(k.id, 2) * 22,
       v: 0.35 + rnd(k.id, 3) * 0.45, ph: rnd(k.id, 4) * 6.28, spin: (rnd(k.id, 5) - 0.5) * 0.15,
     }
     g.userData.item = it; if (it.media) it.media.grp.userData.item = it // ให้ raycast หา item จาก mesh ที่ถูกคลิกได้
     items.push(it)
   }
 
-  /* ---------- กระทงสุ่มลอยออกมาเรื่อย ๆ (ตกแต่งเฉย ๆ ไม่มีพร ไม่นับในจำนวน) ---------- */
-  const pick = (a) => a[Math.floor(Math.random() * a.length)]
-  const AMBIENT_MAX = 22
-  let ambient = 0, ambientTimer = 0
-  function spawnAmbient(startX = -32) {
-    const g = buildKrathong(pick(['#ff6b9d', '#ffd23f', '#6bcb77', '#4d96ff', '#c77dff']), pick(Object.keys(MODELS)), pick(['none', 'flower', 'incense', 'both']))
-    scene.add(g); ambient++
-    items.push({ ambient: true, g, label: null, media: null, born: performance.now(), x: startX, z: -3 - Math.random() * 22, v: 0.4 + Math.random() * 0.6, ph: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.15 })
-  }
-  for (let i = 0; i < 10; i++) spawnAmbient(-40 + Math.random() * 80) // เปิดหน้ามาแม่น้ำไม่ว่าง
-  function dispose(k) { // geometry/วัสดุส่วนใหญ่ใช้ร่วมกัน ปล่อยเฉพาะ sprite ที่สร้างใหม่ต่อกระทง
-    scene.remove(k.g); k.g.traverse((o) => { if (o.isSprite) o.material.dispose() }); if (k.ambient) ambient--
-  }
 
   /* ---------- รูป/วิดีโอที่แนบกับกระทง: ป้ายลอยเหนือกระทง หันหน้าหากล้องเสมอ ---------- */
   const PW = 1.8, PH = 1.3, frameMat = new THREE.MeshBasicMaterial({ color: '#fff3d0', side: THREE.DoubleSide })
@@ -367,12 +354,9 @@ if (renderer) {
     updateWeatherFx(dt, t)
 
     let videos = 0
-    ambientTimer += dt
-    if (ambientTimer > 1.8 && ambient < AMBIENT_MAX) { ambientTimer = 0; spawnAmbient() }
-    for (let n = items.length - 1; n >= 0; n--) if (items[n].ambient && items[n].x > 50) { dispose(items[n]); items.splice(n, 1) }
     for (const k of items) {
       k.x += k.v * env.drift * dt
-      if (k.x > 48 && !k.ambient) { k.x = -48; k.z = -3 - Math.random() * 22 } // วนกลับต้นน้ำ เปลี่ยนเลนใหม่
+      if (k.x > 34) { k.x = -34; k.z = -3 - Math.random() * 22 } // กระทงจริงทุกอันวนกลับต้นน้ำ (ช่วงที่กล้องมองเห็น) เปลี่ยนเลนใหม่
       const age = (now - k.born) / 1000, drop = age < 1.2 ? 1 - age / 1.2 : 0 // กระทงใหม่หล่นลงน้ำ
       const y = waveJS(k.x, k.z, t) + 0.08 + drop * drop * 5
       k.g.position.set(k.x, y, k.z)
@@ -418,7 +402,7 @@ if (renderer) {
   const loadCount = async () => {
     try {
       const s = await (await fetch('/api/stats')).json()
-      countEl.textContent = `🪔 ลอยแล้ว ${n(s.krathongs)} กระทง · 👀 วันนี้ ${n(s.visitorsToday)} คน · เข้าชมรวม ${n(s.views)} ครั้ง · 🟢 ออนไลน์ ${n(s.online)}`
+      countEl.textContent = `🪔 ลอยแล้ว ${n(s.krathongs)} กระทง${s.krathongs > seen.size ? ` (แสดง ${n(seen.size)} ล่าสุด)` : ''} ·👀 วันนี้ ${n(s.visitorsToday)} คน · เข้าชมรวม ${n(s.views)} ครั้ง · 🟢 ออนไลน์ ${n(s.online)}`
     } catch {}
   }
   fetch('/api/visit', { method: 'POST' }).catch(() => {}).finally(loadCount) // นับการเปิดหน้า 1 ครั้ง แล้วค่อยแสดงตัวเลข

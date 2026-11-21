@@ -1,0 +1,17 @@
+# docker compose up -d --build
+# ตั้งค่าใน .env (คัดลอกจาก .env.example): ADMIN_KEY, COOKIE_SECRET, BIND, HOST_PORT
+name: loy-krathong
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TRUST_PROXY: "1" # อยู่หลัง Cloudflare Tunnel: อ่าน IP ผู้เยี่ยมชมจริงจาก X-Forwarded-For เพื่อให้ rate limit นับถูกคน
+      LOG: "0"
+    ports:
+      - "${BIND:-127.0.0.1}:${HOST_PORT:-3250}:3000"
+    volumes:
+      - data:/data
+volumes:
+  data:

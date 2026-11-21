@@ -414,10 +414,15 @@ if (renderer) {
     try { (await (await fetch('/api/krathongs')).json()).reverse().forEach((k) => add(k, fresh)) } catch {}
   }
   const countEl = document.getElementById('count')
+  const n = (v) => v.toLocaleString('th-TH')
   const loadCount = async () => {
-    try { countEl.textContent = `🪔 ลอยแล้ว ${(await (await fetch('/api/stats')).json()).krathongs.toLocaleString('th-TH')} กระทง` } catch {}
+    try {
+      const s = await (await fetch('/api/stats')).json()
+      countEl.textContent = `🪔 ลอยแล้ว ${n(s.krathongs)} กระทง · 👀 วันนี้ ${n(s.visitorsToday)} คน · เข้าชมรวม ${n(s.views)} ครั้ง · 🟢 ออนไลน์ ${n(s.online)}`
+    } catch {}
   }
-  load(false); loadCount(); setInterval(() => { load(true); loadCount() }, 10000)
+  fetch('/api/visit', { method: 'POST' }).catch(() => {}).finally(loadCount) // นับการเปิดหน้า 1 ครั้ง แล้วค่อยแสดงตัวเลข
+  load(false); setInterval(() => { load(true); loadCount() }, 10000)
 
   /* ---------- ซ่อน/แสดงแผงฟอร์มเพื่อดูฉากเต็มจอ (ปุ่ม ✕ หรือกด H) ---------- */
   const showBtn = document.getElementById('show')

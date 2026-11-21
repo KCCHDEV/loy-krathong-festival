@@ -7,5 +7,6 @@ export type RoutePath =
   | "/api/admin/system"
   | "/api/krathongs"
   | "/api/stats"
+  | "/api/visit"
   | "/api/weather"
   | "/media/:file"

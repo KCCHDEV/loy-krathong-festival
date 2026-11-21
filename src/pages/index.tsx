@@ -18,8 +18,11 @@ export default function Home() {
         <body>
           <canvas id="scene"></canvas>
           <div id="labels"></div>
-          <div id="weather"></div>
-          <div id="count">🪔 กำลังนับ…</div>
+          <div id="bar">
+            <div id="weather" class="pill"></div>
+            <a id="fb" class="pill" href="https://www.facebook.com/phu.phid.hwang.tlxd.pi.kxlf" target="_blank" rel="noopener noreferrer">📘 ติดตามเพจ Facebook</a>
+            <div id="count" class="pill">🪔 กำลังนับ…</div>
+          </div>
           <button type="button" id="show" hidden>🪔 ลอยกระทง</button>
           <div id="lightbox" hidden>
             <button type="button" id="lbClose" aria-label="ปิด">✕</button>

@@ -18,12 +18,13 @@ button:disabled{opacity:.6}
 .chips input{display:none}
 .chips span{display:block;padding:4px 10px;border-radius:999px;background:#fff2;font-size:13px;cursor:pointer}
 .chips input:checked+span{background:#ff9f1c;color:#000;font-weight:700}
-#weather{position:fixed;left:12px;bottom:12px;font-size:13px;background:#0007;border-radius:999px;padding:6px 14px;backdrop-filter:blur(6px)}
+#bar{position:fixed;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;pointer-events:none}
+.pill{font-size:13px;background:#0007;border-radius:999px;padding:6px 14px;backdrop-filter:blur(6px);color:#fff;text-decoration:none;pointer-events:auto}
+a.pill:hover{background:#1877f2}
 .file{display:block;margin:6px 0;cursor:pointer}
 .file input{display:none}
 .file span{display:block;padding:8px;border-radius:8px;border:1px dashed #fff6;font-size:13px;color:#ffffffcc}
 .file:hover span{background:#fff1}
-#count{position:fixed;right:12px;bottom:12px;font-size:13px;background:#0007;border-radius:999px;padding:6px 14px;backdrop-filter:blur(6px)}
 #panel[hidden],#show[hidden],#lightbox[hidden]{display:none}
 #panel button#hide{position:absolute;right:8px;top:8px;width:30px;height:30px;padding:0;margin:0;border-radius:50%;background:#fff2;color:#fff;font-size:14px}
 #show{position:fixed;left:50%;top:14px;transform:translateX(-50%);width:auto;padding:8px 18px;border-radius:999px;border:0;background:#ff9f1c;color:#000;font:inherit;font-weight:700;cursor:pointer}

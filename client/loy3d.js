@@ -196,11 +196,41 @@ if (renderer) {
     const label = document.createElement('div'); label.className = 'lbl'; label.textContent = k.name + ': ' + k.wish // textContent = กัน XSS
     labels.appendChild(label)
     items.push({
-      g, label, born: fresh ? performance.now() : -1e9,
+      g, label, born: fresh ? performance.now() : -1e9, media: k.media ? makeBillboard(k) : null,
       x: fresh ? -4 : (rnd(k.id, 1) - 0.5) * 90, z: fresh ? 1 : -3 - rnd(k.id, 2) * 22,
       v: 0.35 + rnd(k.id, 3) * 0.45, ph: rnd(k.id, 4) * 6.28, spin: (rnd(k.id, 5) - 0.5) * 0.15,
     })
   }
+
+  /* ---------- รูป/วิดีโอที่แนบกับกระทง: ป้ายลอยเหนือกระทง หันหน้าหากล้องเสมอ ---------- */
+  const PW = 1.8, PH = 1.3, frameMat = new THREE.MeshBasicMaterial({ color: '#fff3d0', side: THREE.DoubleSide })
+  const frameGeo = new THREE.PlaneGeometry(PW + 0.12, PH + 0.12), picGeo = new THREE.PlaneGeometry(PW, PH)
+  function makeBillboard(k) {
+    const grp = new THREE.Group(), inner = new THREE.Group()
+    const pic = new THREE.Mesh(picGeo, new THREE.MeshBasicMaterial({ color: '#222', side: THREE.DoubleSide, toneMapped: false }))
+    pic.position.z = 0.01; inner.add(new THREE.Mesh(frameGeo, frameMat), pic); grp.add(inner); grp.visible = false; scene.add(grp)
+    return { grp, inner, pic, kind: k.mediaKind, url: k.media, started: false, video: null }
+  }
+  const fit = (b, w, h) => { // ย่อให้พอดีกรอบโดยคงสัดส่วนเดิม
+    const r = w / h, box = PW / PH
+    b.inner.scale.set(r > box ? 1 : r / box, r > box ? box / r : 1, 1)
+  }
+  function startMedia(b) {
+    b.started = true
+    if (b.kind === 'image') {
+      new THREE.TextureLoader().load(b.url, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace; b.pic.material.map = tex; b.pic.material.color.set('#fff'); b.pic.material.needsUpdate = true
+        fit(b, tex.image.width, tex.image.height)
+      })
+    } else {
+      const v = document.createElement('video')
+      Object.assign(v, { muted: true, loop: true, playsInline: true, crossOrigin: 'anonymous', preload: 'metadata', src: b.url })
+      v.addEventListener('loadedmetadata', () => fit(b, v.videoWidth, v.videoHeight))
+      const tex = new THREE.VideoTexture(v); tex.colorSpace = THREE.SRGBColorSpace
+      b.pic.material.map = tex; b.pic.material.color.set('#fff'); b.pic.material.needsUpdate = true; b.video = v
+    }
+  }
+  const MAX_VIDEOS = 3, VIDEO_RANGE = 22, MEDIA_RANGE = 34
 
   /* ---------- โคมลอยขึ้นฟ้า ---------- */
   const N = 60, lp = new Float32Array(N * 3), ls = new Float32Array(N)
@@ -320,6 +350,7 @@ if (renderer) {
     stars.material.opacity = (0.75 + Math.sin(t * 1.3) * 0.25) * (1 - env.dayK) * (1 - env.cloud)
     updateWeatherFx(dt, t)
 
+    let videos = 0
     for (const k of items) {
       k.x += k.v * env.drift * dt; if (k.x > 48) k.x = -48
       const age = (now - k.born) / 1000, drop = age < 1.2 ? 1 - age / 1.2 : 0 // กระทงใหม่หล่นลงน้ำ
@@ -330,8 +361,22 @@ if (renderer) {
       const fl = 1 + Math.sin(t * 17 + k.ph) * 0.12 + Math.sin(t * 29 + k.ph * 2) * 0.07
       k.g.userData.flame.scale.set(0.9 * fl, 0.9 * (2 - fl), 1)
 
-      tmp.set(k.x, y + 1.3, k.z).project(camera)
       const dist = camera.position.distanceTo(k.g.position)
+      const b = k.media
+      if (b) {
+        const near = dist < MEDIA_RANGE
+        if (near && !b.started) startMedia(b)
+        b.grp.visible = near
+        if (near) {
+          b.grp.position.set(k.x, y + 2.1, k.z); b.grp.quaternion.copy(camera.quaternion)
+          b.grp.scale.setScalar(Math.min(1, age / 1.2 + 0.3))
+        }
+        if (b.video) { // เล่นเฉพาะวิดีโอที่ใกล้ (สูงสุด 3 อัน) ที่เหลือหยุดไว้ประหยัดเครื่อง
+          const want = near && dist < VIDEO_RANGE && videos < MAX_VIDEOS
+          if (want) { videos++; if (b.video.paused) b.video.play().catch(() => {}) } else if (!b.video.paused) b.video.pause()
+        }
+      }
+      tmp.set(k.x, y + (b ? 3 : 1.3), k.z).project(camera)
       const on = tmp.z < 1 && Math.abs(tmp.x) < 1.1 && dist < 38
       k.label.style.opacity = on ? Math.min(1, (38 - dist) / 14) : 0
       if (on) k.label.style.transform = `translate(-50%,-100%) translate(${(tmp.x * 0.5 + 0.5) * innerWidth}px,${(-tmp.y * 0.5 + 0.5) * innerHeight}px)`
@@ -354,13 +399,32 @@ if (renderer) {
     e.preventDefault()
     const btn = form.querySelector('button'); btn.disabled = true; msg.textContent = ''
     try {
-      const r = await fetch('/api/krathongs', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: form.name.value, wish: form.wish.value, color: form.c.value, model: form.model.value, deco: form.deco.value }),
-      })
-      if (!r.ok) throw 0
-      add(await r.json(), true); form.wish.value = ''
-    } catch { msg.textContent = 'ลอยไม่สำเร็จ ลองใหม่อีกครั้ง' }
+      const fd = new FormData()
+      for (const [k, v] of [['name', form.name.value], ['wish', form.wish.value], ['color', form.c.value], ['model', form.model.value], ['deco', form.deco.value]]) fd.append(k, v)
+      const file = form.media.files[0]
+      if (file) fd.append('media', await prepare(file))
+      const r = await fetch('/api/krathongs', { method: 'POST', body: fd })
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error)
+      add(await r.json(), true); form.wish.value = ''; form.media.value = ''; fileName.textContent = FILE_HINT
+    } catch (err) { msg.textContent = err?.message || 'ลอยไม่สำเร็จ ลองใหม่อีกครั้ง' }
     btn.disabled = false
+  }
+
+  /* ---------- แนบรูป/วิดีโอ ---------- */
+  const fileName = document.getElementById('fileName'), FILE_HINT = fileName.textContent
+  form.media.onchange = () => { fileName.textContent = form.media.files[0]?.name.slice(0, 28) || FILE_HINT; msg.textContent = '' }
+  // รูป: วาดผ่าน canvas ก่อนส่ง = ลบ EXIF (เช่นพิกัด GPS ในรูปถ่าย) และย่อเหลือ ≤1280px · GIF จะเหลือเฟรมแรก · วิดีโอส่งตามเดิม (≤10 MB)
+  async function prepare(file) {
+    if (file.type.startsWith('video/')) {
+      if (file.size > 10 * 1024 * 1024) throw new Error('วิดีโอใหญ่เกิน 10 MB')
+      return file
+    }
+    let bmp
+    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }) } catch { throw new Error('ไฟล์นี้ไม่ใช่รูป/วิดีโอที่รองรับ (PNG, JPEG, WebP, GIF, MP4, WebM)') }
+    const s = Math.min(1, 1280 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas')
+    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s)
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height)
+    const blob = (await new Promise((r) => c.toBlob(r, 'image/webp', 0.85))) ?? (await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85)))
+    return new File([blob], 'photo', { type: blob.type })
   }
 }

@@ -4,3 +4,4 @@ node_modules
 core/reload.gen.ts
 .env
 dist
+uploads/

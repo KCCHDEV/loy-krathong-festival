@@ -47,6 +47,10 @@ export default function Home() {
                 </label>
               ))}
             </div>
+            <label class="file">
+              <input type="file" name="media" accept="image/*,video/mp4,video/webm" />
+              <span id="fileName">📎 แนบรูปหรือวิดีโอ (ไม่บังคับ)</span>
+            </label>
             <button>ลอยกระทง</button>
             <div id="msg"></div>
           </form>

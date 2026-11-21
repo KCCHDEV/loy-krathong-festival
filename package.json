@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch index.tsx",
+    "build:client": "bun build client/loy3d.js --outfile public/loy.js --minify --target browser",
     "start": "NODE_ENV=production bun index.tsx",
     "start:cluster": "bun scripts/cluster.ts",
     "lb": "bun scripts/lb.ts",
@@ -19,6 +20,7 @@
   "dependencies": {},
   "devDependencies": {
     "@types/bun": "^1.4.4",
+    "three": "^0.187.0",
     "typescript": "5"
   },
   "bun-create": {

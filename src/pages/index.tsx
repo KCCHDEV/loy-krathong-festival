@@ -16,8 +16,8 @@ export default function Home() {
           <link rel="stylesheet" href={asset('/public/loy.css')} />
         </head>
         <body>
-          <div id="moon"></div>
-          <div id="river"></div>
+          <canvas id="scene"></canvas>
+          <div id="labels"></div>
           <form id="panel">
             <h1>🪔 ลอยกระทงออนไลน์</h1>
             <input name="name" placeholder="ชื่อของคุณ" maxlength="20" required />

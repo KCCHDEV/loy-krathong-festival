@@ -8,14 +8,18 @@ const oneOf = (values: readonly string[]) => t.Union(values.map((v) => t.Literal
 
 export const GET = () => latest()
 
-// กันรัวลอย/อัปโหลดรัว: ต่อ IP ไม่เกิน 6 อันต่อนาที (นับใน memory ของ process นี้)
-// shortcut: หลาย worker ต่างคนต่างนับ และ IP ตัวเดียวกันหลัง NAT ใช้โควต้าร่วมกัน, ใช้ core/ratelimit.ts + proxy จริงเมื่อขึ้น production
+// กันรัวลอย/อัปโหลดรัว ต่อ IP: ไม่เกิน 6 อัน/นาที และ 40 อัน/ชั่วโมง (นับใน memory ของ process นี้ · ตั้งได้ด้วย env)
+// ส่วนคำขอทั่วไปทุก path จำกัดที่ createApp (RATE_LIMIT, ค่าเริ่มต้น 300 ครั้ง/นาที/IP)
+// shortcut: หลาย worker ต่างคนต่างนับ และ IP เดียวกันหลัง NAT ใช้โควต้าร่วมกัน, ตั้ง TRUST_PROXY=1 เมื่ออยู่หลัง proxy จริง ไม่งั้น IP ผู้ใช้ทุกคนจะเป็น IP ของ proxy
+const PER_MIN = Number(process.env.KRATHONG_PER_MIN ?? 6), PER_HOUR = Number(process.env.KRATHONG_PER_HOUR ?? 40)
 const hits = new Map<string, number[]>()
-const tooMany = (ip: string) => {
-  const now = Date.now(), recent = (hits.get(ip) ?? []).filter((x) => now - x < 60_000)
+function limited(ip: string): string | null {
+  const now = Date.now(), recent = (hits.get(ip) ?? []).filter((x) => now - x < 3_600_000)
   recent.push(now); hits.set(ip, recent)
-  if (hits.size > 5000) for (const [k, v] of hits) if (now - v[v.length - 1]! > 60_000) hits.delete(k)
-  return recent.length > 6
+  if (hits.size > 5000) for (const [k, v] of hits) if (now - v[v.length - 1]! > 3_600_000) hits.delete(k)
+  if (recent.length > PER_HOUR) return 'วันนี้ลอยเยอะแล้ว กลับมาใหม่ในอีกสักชั่วโมงนะ'
+  if (recent.filter((x) => now - x < 60_000).length > PER_MIN) return 'ลอยบ่อยเกินไป รอสักครู่แล้วลองใหม่'
+  return null
 }
 
 export const POST = defineRoute({
@@ -28,7 +32,8 @@ export const POST = defineRoute({
     media: t.Optional(t.File()),
   }),
   handler: async ({ body, ip }) => {
-    if (tooMany(ip as string)) return status(429, { error: 'ลอยบ่อยเกินไป รอสักครู่แล้วลองใหม่' })
+    const wait = limited(ip as string)
+    if (wait) return status(429, { error: wait })
     let media
     try {
       if (body.media && body.media.size > 0) media = await saveMedia(body.media)

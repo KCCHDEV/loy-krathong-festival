@@ -195,11 +195,27 @@ if (renderer) {
     const g = buildKrathong(k.color, k.model, k.deco); scene.add(g)
     const label = document.createElement('div'); label.className = 'lbl'; label.textContent = k.name + ': ' + k.wish // textContent = กัน XSS
     labels.appendChild(label)
-    items.push({
-      g, label, born: fresh ? performance.now() : -1e9, media: k.media ? makeBillboard(k) : null,
+    const it = {
+      info: k, g, label, born: fresh ? performance.now() : -1e9, media: k.media ? makeBillboard(k) : null,
       x: fresh ? -4 : (rnd(k.id, 1) - 0.5) * 90, z: fresh ? 1 : -3 - rnd(k.id, 2) * 22,
       v: 0.35 + rnd(k.id, 3) * 0.45, ph: rnd(k.id, 4) * 6.28, spin: (rnd(k.id, 5) - 0.5) * 0.15,
-    })
+    }
+    g.userData.item = it; if (it.media) it.media.grp.userData.item = it // ให้ raycast หา item จาก mesh ที่ถูกคลิกได้
+    items.push(it)
+  }
+
+  /* ---------- กระทงสุ่มลอยออกมาเรื่อย ๆ (ตกแต่งเฉย ๆ ไม่มีพร ไม่นับในจำนวน) ---------- */
+  const pick = (a) => a[Math.floor(Math.random() * a.length)]
+  const AMBIENT_MAX = 22
+  let ambient = 0, ambientTimer = 0
+  function spawnAmbient(startX = -32) {
+    const g = buildKrathong(pick(['#ff6b9d', '#ffd23f', '#6bcb77', '#4d96ff', '#c77dff']), pick(Object.keys(MODELS)), pick(['none', 'flower', 'incense', 'both']))
+    scene.add(g); ambient++
+    items.push({ ambient: true, g, label: null, media: null, born: performance.now(), x: startX, z: -3 - Math.random() * 22, v: 0.4 + Math.random() * 0.6, ph: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.15 })
+  }
+  for (let i = 0; i < 10; i++) spawnAmbient(-40 + Math.random() * 80) // เปิดหน้ามาแม่น้ำไม่ว่าง
+  function dispose(k) { // geometry/วัสดุส่วนใหญ่ใช้ร่วมกัน ปล่อยเฉพาะ sprite ที่สร้างใหม่ต่อกระทง
+    scene.remove(k.g); k.g.traverse((o) => { if (o.isSprite) o.material.dispose() }); if (k.ambient) ambient--
   }
 
   /* ---------- รูป/วิดีโอที่แนบกับกระทง: ป้ายลอยเหนือกระทง หันหน้าหากล้องเสมอ ---------- */
@@ -351,8 +367,12 @@ if (renderer) {
     updateWeatherFx(dt, t)
 
     let videos = 0
+    ambientTimer += dt
+    if (ambientTimer > 1.8 && ambient < AMBIENT_MAX) { ambientTimer = 0; spawnAmbient() }
+    for (let n = items.length - 1; n >= 0; n--) if (items[n].ambient && items[n].x > 50) { dispose(items[n]); items.splice(n, 1) }
     for (const k of items) {
-      k.x += k.v * env.drift * dt; if (k.x > 48) k.x = -48
+      k.x += k.v * env.drift * dt
+      if (k.x > 48 && !k.ambient) { k.x = -48; k.z = -3 - Math.random() * 22 } // วนกลับต้นน้ำ เปลี่ยนเลนใหม่
       const age = (now - k.born) / 1000, drop = age < 1.2 ? 1 - age / 1.2 : 0 // กระทงใหม่หล่นลงน้ำ
       const y = waveJS(k.x, k.z, t) + 0.08 + drop * drop * 5
       k.g.position.set(k.x, y, k.z)
@@ -378,8 +398,8 @@ if (renderer) {
       }
       tmp.set(k.x, y + (b ? 3 : 1.3), k.z).project(camera)
       const on = tmp.z < 1 && Math.abs(tmp.x) < 1.1 && dist < 38
-      k.label.style.opacity = on ? Math.min(1, (38 - dist) / 14) : 0
-      if (on) k.label.style.transform = `translate(-50%,-100%) translate(${(tmp.x * 0.5 + 0.5) * innerWidth}px,${(-tmp.y * 0.5 + 0.5) * innerHeight}px)`
+      if (k.label) k.label.style.opacity = on ? Math.min(1, (38 - dist) / 14) : 0
+      if (k.label && on) k.label.style.transform = `translate(-50%,-100%) translate(${(tmp.x * 0.5 + 0.5) * innerWidth}px,${(-tmp.y * 0.5 + 0.5) * innerHeight}px)`
     }
 
     for (let i = 0; i < N; i++) { lp[i * 3 + 1] += ls[i] * dt * 1.6; lp[i * 3] += Math.sin(t * 0.3 + i) * dt * 0.5; if (lp[i * 3 + 1] > 70) resetLantern(i) }
@@ -393,11 +413,50 @@ if (renderer) {
   const load = async (fresh) => {
     try { (await (await fetch('/api/krathongs')).json()).reverse().forEach((k) => add(k, fresh)) } catch {}
   }
-  load(false); setInterval(() => load(true), 10000)
+  const countEl = document.getElementById('count')
+  const loadCount = async () => {
+    try { countEl.textContent = `🪔 ลอยแล้ว ${(await (await fetch('/api/stats')).json()).krathongs.toLocaleString('th-TH')} กระทง` } catch {}
+  }
+  load(false); loadCount(); setInterval(() => { load(true); loadCount() }, 10000)
+
+  /* ---------- ซ่อน/แสดงแผงฟอร์มเพื่อดูฉากเต็มจอ (ปุ่ม ✕ หรือกด H) ---------- */
+  const showBtn = document.getElementById('show')
+  const togglePanel = (open) => { form.hidden = !open; showBtn.hidden = open }
+  document.getElementById('hide').onclick = () => togglePanel(false)
+  showBtn.onclick = () => togglePanel(true)
+
+  /* ---------- กดที่กระทงที่มีรูป/วิดีโอเพื่อดูแบบขยาย ---------- */
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2()
+  const itemAt = (e) => {
+    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera)
+    const targets = items.filter((k) => k.media && k.media.grp.visible).flatMap((k) => [k.media.grp, k.g])
+    for (const h of ray.intersectObjects(targets, true)) {
+      for (let o = h.object; o; o = o.parent) if (o.userData.item) return o.userData.item
+    }
+  }
+  let hoverAt = 0
+  addEventListener('pointermove', (e) => {
+    if (e.target !== canvas || performance.now() - hoverAt < 60) return
+    hoverAt = performance.now(); canvas.style.cursor = itemAt(e) ? 'pointer' : ''
+  })
+  const lightbox = document.getElementById('lightbox'), lbBody = document.getElementById('lbBody'), lbCap = document.getElementById('lbCap')
+  const closeLightbox = () => { lightbox.hidden = true; lbBody.replaceChildren() } // ลบ element = หยุดเล่นวิดีโอด้วย
+  function openLightbox(k) {
+    const m = k.info.media, el = document.createElement(k.info.mediaKind === 'video' ? 'video' : 'img')
+    if (el.tagName === 'VIDEO') Object.assign(el, { controls: true, autoplay: true, loop: true, playsInline: true, src: m })
+    else Object.assign(el, { src: m, alt: k.info.wish })
+    lbBody.replaceChildren(el); lbCap.textContent = `${k.info.name}: ${k.info.wish}`; lightbox.hidden = false
+  }
+  canvas.addEventListener('click', (e) => { const k = itemAt(e); if (k) openLightbox(k) })
+  lightbox.addEventListener('click', (e) => { if (e.target !== lbBody.firstChild) closeLightbox() })
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox()
+    else if ((e.key === 'h' || e.key === 'H') && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) togglePanel(form.hidden)
+  })
 
   form.onsubmit = async (e) => {
     e.preventDefault()
-    const btn = form.querySelector('button'); btn.disabled = true; msg.textContent = ''
+    const btn = form.querySelector('button:not([type=button])'); btn.disabled = true; msg.textContent = ''
     try {
       const fd = new FormData()
       for (const [k, v] of [['name', form.name.value], ['wish', form.wish.value], ['color', form.c.value], ['model', form.model.value], ['deco', form.deco.value]]) fd.append(k, v)

@@ -19,7 +19,15 @@ export default function Home() {
           <canvas id="scene"></canvas>
           <div id="labels"></div>
           <div id="weather"></div>
+          <div id="count">🪔 กำลังนับ…</div>
+          <button type="button" id="show" hidden>🪔 ลอยกระทง</button>
+          <div id="lightbox" hidden>
+            <button type="button" id="lbClose" aria-label="ปิด">✕</button>
+            <div id="lbBody"></div>
+            <p id="lbCap"></p>
+          </div>
           <form id="panel">
+            <button type="button" id="hide" aria-label="ซ่อนแผง (กด H)" title="ซ่อนเพื่อดูฉาก (กด H)">✕</button>
             <h1>🪔 ลอยกระทงออนไลน์</h1>
             <input name="name" placeholder="ชื่อของคุณ" maxlength="20" required />
             <input name="wish" placeholder="พรที่อยากขอ" maxlength="40" required />

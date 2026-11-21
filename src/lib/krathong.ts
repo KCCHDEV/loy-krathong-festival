@@ -34,6 +34,8 @@ export const add = (name: string, wish: string, color: string, model: string, de
   view(db.query(`INSERT INTO krathongs (name, wish, color, model, deco, media, media_kind) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING ${FIELDS}`)
     .get(name, wish, color, model, deco, media?.file ?? null, media?.kind ?? null) as Row)
 
+export const count = () => (db.query('SELECT COUNT(*) AS n FROM krathongs').get() as { n: number }).n
+
 /** ลบกระทงพร้อมไฟล์แนบ · คืน false ถ้าไม่มี id นี้ */
 export function remove(id: number): boolean {
   const row = db.query('SELECT media FROM krathongs WHERE id = ?').get(id) as { media: string | null } | null

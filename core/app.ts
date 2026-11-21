@@ -43,7 +43,9 @@ export async function createApp() {
   if (logRequests) app.use(requestLogger({ secret: COOKIE_SECRET }))
 
   // จำกัดคำขอต่อ IP: RATE_LIMIT="120/60" = 120 ครั้งต่อ 60 วินาที (ไม่ตั้ง = ปิด) · ข้ามไฟล์ static, health, endpoint วัดความเร็ว
-  const rate = process.env.RATE_LIMIT ? parseRate(process.env.RATE_LIMIT) : null
+  // เว็บนี้เปิดสาธารณะ: เปิดไว้เป็นค่าเริ่มต้น 300 ครั้ง/นาที/IP (ปิดด้วย RATE_LIMIT=0 · ตอนรันเทสไม่เปิด)
+  const rateSpec = process.env.RATE_LIMIT ?? (process.env.NODE_ENV === 'test' ? '' : '300/60')
+  const rate = rateSpec && rateSpec !== '0' ? parseRate(rateSpec) : null
   if (rate) app.use(rateLimit({ ...rate, skip: ['/public/', '/healthz', '/readyz', '/metrics', '/api/bench/', '/__dev/'] }))
   // CORS: CORS_ORIGINS="https://a.com,https://b.com" หรือ "*" (เฉพาะ /api/)
   if (process.env.CORS_ORIGINS) {

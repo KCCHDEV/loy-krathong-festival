@@ -23,4 +23,12 @@ button:disabled{opacity:.6}
 .file input{display:none}
 .file span{display:block;padding:8px;border-radius:8px;border:1px dashed #fff6;font-size:13px;color:#ffffffcc}
 .file:hover span{background:#fff1}
+#count{position:fixed;right:12px;bottom:12px;font-size:13px;background:#0007;border-radius:999px;padding:6px 14px;backdrop-filter:blur(6px)}
+#panel[hidden],#show[hidden],#lightbox[hidden]{display:none}
+#panel button#hide{position:absolute;right:8px;top:8px;width:30px;height:30px;padding:0;margin:0;border-radius:50%;background:#fff2;color:#fff;font-size:14px}
+#show{position:fixed;left:50%;top:14px;transform:translateX(-50%);width:auto;padding:8px 18px;border-radius:999px;border:0;background:#ff9f1c;color:#000;font:inherit;font-weight:700;cursor:pointer}
+#lightbox{position:fixed;inset:0;z-index:10;background:#000d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px}
+#lbBody img,#lbBody video{max-width:92vw;max-height:78vh;border-radius:12px;display:block;background:#000}
+#lbCap{margin:0;font-size:15px;max-width:92vw;text-align:center;word-break:break-word}
+#lbClose{position:absolute;right:14px;top:14px;width:40px;height:40px;padding:0;margin:0;border-radius:50%;background:#fff2;color:#fff;font-size:18px;cursor:pointer}
 #msg{min-height:1em;font-size:13px;color:#ffb4b4}

@@ -1,0 +1,15 @@
+{
+  "id": "cms",
+  "title": "CMS บทความและหน้าเว็บ",
+  "description": "เขียนบทความ/หน้าด้วย markdown, ร่าง→เผยแพร่, แท็ก, ประวัติการแก้ไข+ย้อนกลับ, พรีวิวสด, RSS + sitemap, cache ล้างอัตโนมัติเมื่อแก้",
+  "category": "เนื้อหา",
+  "requires": ["auth"],
+  "order": 30,
+  "nav": [{ "href": "/blog", "label": "บล็อก" }],
+  "env": { "SITE_URL": "http://localhost:3000" },
+  "notes": [
+    "หลังบ้าน: /admin/cms (ต้อง login เป็น admin หรือ editor) · หน้าสาธารณะ: /blog, /blog/<slug>, /p/<slug>",
+    "RSS: /blog/feed.xml · sitemap: /sitemap.xml (ตั้ง SITE_URL เป็นโดเมนจริงใน production)",
+    "markdown ถูก escape ก่อนเสมอ (ไม่รับ HTML ดิบ) และลิงก์รับเฉพาะ http(s)/mailto/path ในเว็บ จึงปลอดภัยจาก XSS"
+  ]
+}

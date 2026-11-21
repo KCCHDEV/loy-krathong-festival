@@ -1,0 +1,15 @@
+{
+  "id": "uploads",
+  "title": "คลังไฟล์ / อัปโหลด",
+  "description": "อัปโหลดรูป/PDF/ข้อความ ตรวจชนิดจากเนื้อไฟล์จริง (ไม่เชื่อนามสกุล), จำกัดขนาด, ไฟล์ละ URL สุ่ม cache ยาว + หน้าจัดการ + API",
+  "category": "เนื้อหา",
+  "requires": ["auth"],
+  "order": 40,
+  "gitignore": ["uploads/"],
+  "env": { "UPLOAD_DIR": "uploads", "UPLOAD_MAX_MB": "5" },
+  "notes": [
+    "คลังไฟล์: /admin/media (admin หรือ editor) · ไฟล์เปิดที่ /uploads/<id> · API: POST /api/uploads (ต้อง login หรือ Bearer JWT)",
+    "ใช้ใน CMS: เขียน markdown ![คำอธิบาย](/uploads/<id>)",
+    "ชนิดที่รับ: png, jpeg, gif, webp, pdf, txt (ไม่รับ svg เพราะแทรก script ได้) — เพิ่มชนิดได้ที่ SIGNATURES ใน src/lib/uploads.ts"
+  ]
+}

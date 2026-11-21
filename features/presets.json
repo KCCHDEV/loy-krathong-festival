@@ -1,0 +1,32 @@
+[
+  {
+    "id": "blank",
+    "title": "เปล่า — เฉพาะ framework",
+    "description": "router, validation, JSX, cache, jobs, load balancer ครบ แต่ไม่มีหน้าตัวอย่างและไม่มีฟีเจอร์เสริม",
+    "features": []
+  },
+  {
+    "id": "app",
+    "title": "แอพที่มีสมาชิก",
+    "description": "สมัคร/เข้าสู่ระบบ/บัญชี + หลังบ้านจัดการผู้ใช้และดูสถานะระบบ",
+    "features": ["auth", "admin"]
+  },
+  {
+    "id": "cms",
+    "title": "เว็บคอนเทนต์ (บล็อก/CMS)",
+    "description": "ระบบสมาชิก + CMS บทความ/หน้า (markdown, ร่าง/เผยแพร่, RSS) + คลังไฟล์ + ฟอร์มติดต่อ",
+    "features": ["auth", "admin", "cms", "uploads", "contact"]
+  },
+  {
+    "id": "full",
+    "title": "ทุกอย่าง",
+    "description": "ทุกฟีเจอร์ + หน้าตัวอย่างทั้งหมด",
+    "features": ["auth", "admin", "cms", "uploads", "contact", "examples"]
+  },
+  {
+    "id": "examples",
+    "title": "ตัวอย่างอย่างเดียว (แบบเดิม)",
+    "description": "เก็บหน้าตัวอย่างและ demo ทั้งหมดไว้ ไม่เพิ่มฟีเจอร์",
+    "features": ["examples"]
+  }
+]

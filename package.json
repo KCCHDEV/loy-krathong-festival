@@ -1,0 +1,29 @@
+{
+  "name": "kitsune",
+  "version": "2.0.0",
+  "description": "Kitsune — ว่องไว แสนกล ครบในตัวเดียว · full-stack Bun (framework + JS ฝั่ง browser เขียนเองทั้งหมด)",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch index.tsx",
+    "start": "NODE_ENV=production bun index.tsx",
+    "start:cluster": "bun scripts/cluster.ts",
+    "lb": "bun scripts/lb.ts",
+    "setup": "bun scripts/setup.ts",
+    "test": "bun test",
+    "bench": "bun scripts/bench.ts",
+    "check": "bun scripts/check-routes.ts && tsc --noEmit && bun scripts/xss-scan.ts",
+    "xss": "bun scripts/xss-scan.ts",
+    "create": "bun scripts/create.ts",
+    "pack:create": "bun scripts/pack-create.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "5"
+  },
+  "bun-create": {
+    "postinstall": [
+      "bun run setup --auto"
+    ]
+  }
+}

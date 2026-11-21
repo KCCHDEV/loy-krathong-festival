@@ -1,5 +1,12 @@
-# ลอยกระทงออนไลน์
+# 🪔 ลอยกระทงออนไลน์
 
-เว็บหน้าเดียว (ไม่ต้อง build) ใส่ชื่อ + คำอธิษฐาน เลือกสีกระทง แล้วกดลอย
+เว็บลอยกระทงที่ทุกคนลอยร่วมกันในแม่น้ำเดียว สร้างบน [Kitsune](https://github.com/KCCHDEV/Kisune-WebServer) (Bun + SQLite)
 
-เปิด `index.html` ในเบราว์เซอร์ได้เลย กระทงถูกเก็บใน localStorage ของเครื่องผู้ใช้เอง (ยังไม่แชร์ข้ามผู้เยี่ยมชม)
+```bash
+bun install
+bun dev        # http://localhost:3000
+bun test
+```
+
+- `src/pages/index.tsx` — หน้าเว็บ · `src/api/krathongs.ts` — API (GET/POST) · `src/lib/krathong.ts` — ตาราง SQLite
+- ต้องรันบน server ที่มี Bun (ใช้ GitHub Pages ไม่ได้)

@@ -1,0 +1,16 @@
+{
+  "id": "auth",
+  "title": "ระบบสมาชิก",
+  "description": "สมัคร / เข้าสู่ระบบ / ออก / หน้าบัญชี / เปลี่ยนรหัสผ่าน + API + JWT สำหรับแอพมือถือ (รหัสผ่านเข้ารหัส argon2id)",
+  "category": "ผู้ใช้",
+  "order": 10,
+  "nav": [{ "href": "/account", "label": "บัญชี" }],
+  "env": {
+    "AUTH_JWT_SECRET": "change-me-a-long-random-string-for-api-tokens"
+  },
+  "notes": [
+    "คนแรกที่สมัครที่ /register จะได้บทบาท admin อัตโนมัติ",
+    "ป้องกันหน้า/โฟลเดอร์ด้วย _guard.ts: export default requireLogin (หรือ requireRole('admin')) จาก src/lib/guards.ts",
+    "API สำหรับ client อื่น: POST /api/auth/token {email,password} → JWT (ตั้ง AUTH_JWT_SECRET ใน production)"
+  ]
+}

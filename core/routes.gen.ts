@@ -5,3 +5,4 @@ export type RoutePath =
   | "/api/admin/jobs"
   | "/api/admin/system"
   | "/api/krathongs"
+  | "/api/weather"

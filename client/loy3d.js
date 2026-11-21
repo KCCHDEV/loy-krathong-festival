@@ -18,7 +18,8 @@ try {
 if (renderer) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   const scene = new THREE.Scene()
-  const HORIZON = new THREE.Color('#1b2a63')
+  const HORIZON = new THREE.Color('#1b2a63'), TOP = new THREE.Color('#02040f'), DEEP = new THREE.Color('#050d22') // อัปเดตตามเวลา/อากาศ (ดู applyEnv)
+  const env = { amp: 1, drift: 1, dayK: 0, cloud: 0, rain: 0 }
   scene.background = new THREE.Color('#050818')
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 1200)
   camera.position.set(0, 2.4, 9)
@@ -38,7 +39,7 @@ if (renderer) {
     new THREE.SphereGeometry(900, 32, 16),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false,
-      uniforms: { top: { value: new THREE.Color('#02040f') }, hor: { value: HORIZON } },
+      uniforms: { top: { value: TOP }, hor: { value: HORIZON } },
       vertexShader: 'varying vec3 p;void main(){p=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
       fragmentShader: 'varying vec3 p;uniform vec3 top,hor;void main(){float h=clamp(normalize(p).y,0.,1.);gl_FragColor=vec4(mix(hor,top,pow(h,.45)),1.);}',
     })))
@@ -52,21 +53,22 @@ if (renderer) {
   const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 2.2, sizeAttenuation: false, color: '#ffffff', transparent: true, depthWrite: false, fog: false }))
   scene.add(stars)
 
-  const moon = new THREE.Mesh(new THREE.SphereGeometry(28, 32, 16), new THREE.MeshBasicMaterial({ color: '#fff6cf', fog: false }))
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(28, 32, 16), new THREE.MeshBasicMaterial({ color: '#fff6cf', fog: false, transparent: true }))
   moon.position.copy(moonDir).multiplyScalar(800); scene.add(moon)
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: '#ffe9a8', blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.28 }))
   halo.scale.setScalar(170); halo.position.copy(moon.position); scene.add(halo)
 
   /* ---------- น้ำ ---------- */
-  const waveGLSL = 'float wave(vec2 p,float t){return sin(p.x*.3+t*.8)*.08+sin(p.y*.5+t*1.1)*.06+sin((p.x+p.y)*.7+t*1.7)*.03;}'
-  const waveJS = (x, z, t) => Math.sin(x * 0.3 + t * 0.8) * 0.08 + Math.sin(z * 0.5 + t * 1.1) * 0.06 + Math.sin((x + z) * 0.7 + t * 1.7) * 0.03
+  // amp = ความแรงคลื่น (ตามลม) ใช้ค่าเดียวกันทั้ง shader และ JS เพื่อให้กระทงลอยตามผิวน้ำพอดี
+  const waveGLSL = 'uniform float amp;float wave(vec2 p,float t){return (sin(p.x*.3+t*.8)*.08+sin(p.y*.5+t*1.1)*.06+sin((p.x+p.y)*.7+t*1.7)*.03)*amp;}'
+  const waveJS = (x, z, t) => (Math.sin(x * 0.3 + t * 0.8) * 0.08 + Math.sin(z * 0.5 + t * 1.1) * 0.06 + Math.sin((x + z) * 0.7 + t * 1.7) * 0.03) * env.amp
   const water = new THREE.Mesh(
     new THREE.PlaneGeometry(1000, 1000, 220, 220).rotateX(-Math.PI / 2),
     new THREE.ShaderMaterial({
-      uniforms: { t: { value: 0 }, moon: { value: moonDir }, hor: { value: HORIZON }, deep: { value: new THREE.Color('#050d22') } },
+      uniforms: { t: { value: 0 }, amp: { value: 1 }, glint: { value: 1 }, moon: { value: moonDir }, hor: { value: HORIZON }, deep: { value: DEEP } },
       vertexShader: `${waveGLSL}uniform float t;varying vec3 w;
         void main(){vec3 p=position;p.y+=wave(p.xz,t);vec4 wp=modelMatrix*vec4(p,1.);w=wp.xyz;gl_Position=projectionMatrix*viewMatrix*wp;}`,
-      fragmentShader: `${waveGLSL}uniform float t;uniform vec3 moon,hor,deep;varying vec3 w;
+      fragmentShader: `${waveGLSL}uniform float t,glint;uniform vec3 moon,hor,deep;varying vec3 w;
         void main(){
           vec2 e=vec2(.05,0.);
           vec3 n=normalize(vec3(wave(w.xz-e.xy,t)-wave(w.xz+e.xy,t),.1,wave(w.xz-e.yx,t)-wave(w.xz+e.yx,t)));
@@ -74,8 +76,8 @@ if (renderer) {
           float f=pow(1.-max(dot(n,v),0.),3.);
           vec3 col=mix(deep,hor*1.4,f);
           vec3 r=reflect(-v,n);
-          col+=vec3(1.,.92,.7)*pow(max(dot(r,moon),0.),400.)*1.4;
-          col+=vec3(.9,.8,.5)*pow(max(dot(r,moon),0.),30.)*.08;
+          col+=vec3(1.,.92,.7)*pow(max(dot(r,moon),0.),400.)*1.4*glint;
+          col+=vec3(.9,.8,.5)*pow(max(dot(r,moon),0.),30.)*.08*glint;
           float d=clamp(length(w-cameraPosition)/700.,0.,1.);
           gl_FragColor=vec4(mix(col,hor,d*d),1.);}`,
     }))
@@ -205,12 +207,14 @@ if (renderer) {
   const resetLantern = (i) => { lp.set([(Math.random() - 0.5) * 160, 4 + Math.random() * 20, -40 - Math.random() * 120], i * 3); ls[i] = 0.6 + Math.random() * 0.8 }
   for (let i = 0; i < N; i++) { resetLantern(i); lp[i * 3 + 1] = Math.random() * 60 }
   const lGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(lp, 3))
-  scene.add(new THREE.Points(lGeo, new THREE.PointsMaterial({ map: glowTex, size: 3.5, color: '#c97a2c', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })))
+  const lanternMat = new THREE.PointsMaterial({ map: glowTex, size: 3.5, color: '#c97a2c', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })
+  scene.add(new THREE.Points(lGeo, lanternMat))
 
   /* ---------- เรนเดอร์ ---------- */
   const composer = new EffectComposer(renderer)
   composer.addPass(new RenderPass(scene, camera))
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.35, 0.5, 0.82))
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.35, 0.5, 0.82)
+  composer.addPass(bloom)
   composer.addPass(new OutputPass())
 
   const resize = () => {
@@ -218,6 +222,90 @@ if (renderer) {
     renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix()
   }
   addEventListener('resize', resize); resize()
+
+  /* ---------- เวลา + สภาพอากาศของลำพูน (เวลา Asia/Bangkok, ข้อมูลจาก /api/weather) ---------- */
+  const qs = new URLSearchParams(location.search) // ?t=14:30&w=rain|storm|cloud|clear — ใช้ลองดูฉากอื่น ๆ
+  const hm = (s) => { const [h, m] = s.split('T').pop().split(':'); return +h * 60 + +m }
+  const bkk = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false })
+  const nowMin = () => (qs.get('t') ? hm(qs.get('t')) : hm(bkk.format(new Date())))
+  const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u) }
+  let W = { temp: null, code: 0, cloud: 20, wind: 6, sunrise: '06:15', sunset: '17:50' } // ค่าเริ่มต้นถ้าดึงอากาศไม่ได้
+  const PRESET = { clear: { code: 0, cloud: 5 }, cloud: { code: 3, cloud: 90 }, rain: { code: 63, cloud: 95 }, storm: { code: 95, cloud: 100, wind: 30 } }
+  const TH = (c) => (c === 0 ? 'ท้องฟ้าแจ่มใส' : c < 3 ? 'มีเมฆบางส่วน' : c === 3 ? 'เมฆมาก' : c < 50 ? 'หมอก' : c < 60 ? 'ฝนปรอย' : c < 80 ? 'ฝนตก' : c < 90 ? 'ฝนระลอก' : 'พายุฝนฟ้าคะนอง')
+
+  const cloudSprites = Array.from({ length: 14 }, (_, i) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, fog: false }))
+    s.scale.set(180 + Math.random() * 160, 70 + Math.random() * 40, 1)
+    s.position.set((Math.random() - 0.5) * 700, 70 + Math.random() * 90, -180 - Math.random() * 300)
+    s.userData.i = i; scene.add(s); return s
+  })
+  const RAIN = 1400, rainPos = new Float32Array(RAIN * 6)
+  const seedDrop = (i) => { const x = (Math.random() - 0.5) * 60, y = Math.random() * 26, z = -30 + Math.random() * 40; rainPos.set([x, y, z, x - 0.1, y - 0.7, z], i * 6) }
+  for (let i = 0; i < RAIN; i++) seedDrop(i)
+  const rainGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(rainPos, 3))
+  const rainLines = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: '#aebbd8', transparent: true, opacity: 0.4 }))
+  rainLines.frustumCulled = false; scene.add(rainLines)
+
+  const C = (h) => new THREE.Color(h)
+  function applyEnv() {
+    const m = nowMin(), sr = hm(W.sunrise), ss = hm(W.sunset)
+    const isDay = m >= sr && m <= ss
+    const nearest = Math.min(Math.abs(m - sr), Math.abs(m - ss))
+    const signed = isDay ? Math.min(m - sr, ss - m) : -nearest // นาทีจากขอบฟ้า: + เหนือขอบฟ้า, - ใต้ขอบฟ้า
+    const dayK = smooth(-25, 35, signed), tw = Math.max(0, 1 - nearest / 55)
+    const preset = PRESET[qs.get('w')] ?? {}
+    const w = { ...W, ...preset }
+    const rain = w.code >= 95 ? 1 : w.code >= 80 ? 0.8 : w.code >= 61 ? 0.7 : w.code >= 51 ? 0.3 : 0
+    const cloud = Math.min(1, Math.max(w.cloud / 100, rain ? 0.8 : 0, w.code === 45 || w.code === 48 ? 0.9 : 0))
+    Object.assign(env, { dayK, cloud, rain, amp: Math.min(2.6, 0.6 + w.wind / 12 + (w.code >= 95 ? 0.5 : 0)), drift: 0.6 + w.wind / 15 })
+
+    // สีท้องฟ้า: กลางคืน→กลางวัน→โทนส้มช่วงเช้า/เย็น→เทาตามเมฆ/ฝน
+    const top = C('#02040f').lerp(C('#2f6fd0'), dayK), hor = C('#1b2a63').lerp(C('#a9d6ff'), dayK), deep = C('#050d22').lerp(C('#1c4f7a'), dayK)
+    hor.lerp(C('#ff8a50'), tw * 0.8); top.lerp(C('#4a3a7a'), tw * 0.35)
+    const g = Math.min(1, cloud * 0.75 + rain * 0.1)
+    top.lerp(C('#090b14').lerp(C('#6f7f93'), dayK), g); hor.lerp(C('#141a2e').lerp(C('#aab4be'), dayK), g); deep.lerp(C('#060a12').lerp(C('#2a3a48'), dayK), g * 0.6)
+    TOP.copy(top); HORIZON.copy(hor); DEEP.copy(deep)
+
+    // ดวงอาทิตย์ (กลางวัน) / ดวงจันทร์ (กลางคืน) เคลื่อนข้ามฟ้าตามเวลา
+    const span = isDay ? ss - sr : 1440 - (ss - sr), pos = isDay ? m - sr : (m > ss ? m - ss : m + 1440 - ss)
+    const a = Math.min(1, Math.max(0, pos / span)) * Math.PI
+    moonDir.set(-Math.cos(a) * 0.7, 0.07 + Math.sin(a) * 0.55, -1).normalize()
+    moon.position.copy(moonDir).multiplyScalar(800); halo.position.copy(moon.position)
+    const sun = isDay
+    moon.material.color.set(sun ? '#fff1b0' : '#fff6cf'); halo.material.color.set(sun ? '#ffd27a' : '#ffe9a8')
+    halo.scale.setScalar(sun ? 300 : 170)
+    moon.material.opacity = 1 - cloud * 0.85; halo.material.opacity = (sun ? 0.55 : 0.28) * (1 - cloud * 0.8)
+    water.material.uniforms.amp.value = env.amp; water.material.uniforms.glint.value = 1 - cloud * 0.85
+    bloom.strength = 0.35 - dayK * 0.17
+    lanternMat.opacity = 1 - dayK * 0.85
+
+    cloudSprites.forEach((s) => {
+      s.visible = s.userData.i / cloudSprites.length < cloud * 1.05
+      s.material.color.set(C('#2c3350').lerp(C('#ffffff'), dayK).lerp(C('#6a7380'), rain * 0.6)); s.material.opacity = 0.25 + cloud * 0.4
+    })
+    rainLines.visible = rain > 0; rainGeo.setDrawRange(0, Math.floor(RAIN * rain * 2))
+
+    const hh = String(Math.floor(m / 60)).padStart(2, '0'), mm = String(m % 60).padStart(2, '0')
+    hud.textContent = `📍 ลำพูน · ${hh}:${mm} น. · ${w.temp != null ? Math.round(w.temp) + '°C · ' : ''}${TH(w.code)} · ลม ${Math.round(w.wind)} กม./ชม.`
+  }
+  function updateWeatherFx(dt, t) {
+    for (const s of cloudSprites) { s.position.x += dt * 2.5 * env.drift; if (s.position.x > 380) s.position.x = -380 }
+    if (!env.rain) return
+    for (let i = 0; i < Math.floor(RAIN * env.rain); i++) {
+      const j = i * 6 + 1
+      rainPos[j] -= 28 * dt; rainPos[j + 3] -= 28 * dt
+      if (rainPos[j] < 0) seedDrop(i), (rainPos[j] = 24 + Math.random() * 3, rainPos[j + 3] = rainPos[j] - 0.7)
+    }
+    rainGeo.attributes.position.needsUpdate = true
+    if (env.rain > 0.9 && Math.random() < dt * 0.15) bloom.strength = 1.2 // ฟ้าแลบ
+    else bloom.strength += (0.35 - env.dayK * 0.17 - bloom.strength) * Math.min(1, dt * 8)
+  }
+  const hud = document.getElementById('weather')
+  applyEnv(); setInterval(applyEnv, 60000)
+  const loadWeather = async () => {
+    try { const j = await (await fetch('/api/weather')).json(); if (!j.error) { W = j; applyEnv() } } catch {}
+  }
+  loadWeather(); setInterval(loadWeather, 600000)
 
   const mouse = { x: 0, y: 0 }
   addEventListener('pointermove', (e) => { mouse.x = e.clientX / innerWidth - 0.5; mouse.y = e.clientY / innerHeight - 0.5 })
@@ -229,10 +317,11 @@ if (renderer) {
     camera.position.x += (mouse.x * 3 - camera.position.x) * 0.03
     camera.position.y += (2.4 - mouse.y - camera.position.y) * 0.03
     camera.lookAt(look)
-    stars.material.opacity = 0.75 + Math.sin(t * 1.3) * 0.25
+    stars.material.opacity = (0.75 + Math.sin(t * 1.3) * 0.25) * (1 - env.dayK) * (1 - env.cloud)
+    updateWeatherFx(dt, t)
 
     for (const k of items) {
-      k.x += k.v * dt; if (k.x > 48) k.x = -48
+      k.x += k.v * env.drift * dt; if (k.x > 48) k.x = -48
       const age = (now - k.born) / 1000, drop = age < 1.2 ? 1 - age / 1.2 : 0 // กระทงใหม่หล่นลงน้ำ
       const y = waveJS(k.x, k.z, t) + 0.08 + drop * drop * 5
       k.g.position.set(k.x, y, k.z)

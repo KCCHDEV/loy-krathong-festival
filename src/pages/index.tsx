@@ -18,6 +18,7 @@ export default function Home() {
         <body>
           <canvas id="scene"></canvas>
           <div id="labels"></div>
+          <div id="weather"></div>
           <form id="panel">
             <h1>🪔 ลอยกระทงออนไลน์</h1>
             <input name="name" placeholder="ชื่อของคุณ" maxlength="20" required />

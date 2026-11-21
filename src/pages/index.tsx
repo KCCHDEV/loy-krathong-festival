@@ -1,5 +1,5 @@
 // GET / — หน้าลอยกระทงออนไลน์ (เอกสารเต็มของตัวเอง ไม่ใช้ layout ราก)
-import { COLORS } from '../lib/krathong'
+import { COLORS, DECOS, MODELS } from '../lib/krathong'
 import { asset } from '../lib/asset'
 
 export const layout = false
@@ -27,6 +27,22 @@ export default function Home() {
                 <label>
                   <input type="radio" name="c" value={c} checked={i === 0} />
                   <span style={`background:${c}`}></span>
+                </label>
+              ))}
+            </div>
+            <div class="chips">
+              {Object.entries(MODELS).map(([v, label], i) => (
+                <label>
+                  <input type="radio" name="model" value={v} checked={i === 0} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <div class="chips">
+              {Object.entries(DECOS).map(([v, label], i) => (
+                <label>
+                  <input type="radio" name="deco" value={v} checked={i === 0} />
+                  <span>{label}</span>
                 </label>
               ))}
             </div>

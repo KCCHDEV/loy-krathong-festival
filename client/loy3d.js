@@ -90,22 +90,97 @@ if (renderer) {
   const petalMats = {}
   const petalMat = (c) => (petalMats[c] ??= new THREE.MeshBasicMaterial({ color: c }))
 
-  function buildKrathong(color) {
+  // รูปทรงแบบ extrude: หัวใจ / ดาว นอนราบ (แกน Y ขึ้น) · เรือ ตัวเรือตั้งตรง
+  const flat = (shape, depth) => new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 2 }).rotateX(-Math.PI / 2)
+  const heartShape = new THREE.Shape()
+    .moveTo(0, -0.55).bezierCurveTo(-0.95, 0.1, -0.5, 0.75, 0, 0.3).bezierCurveTo(0.5, 0.75, 0.95, 0.1, 0, -0.55)
+  const starShape = new THREE.Shape()
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.32 : 0.7
+    starShape[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r)
+  }
+  starShape.closePath()
+  const hullShape = new THREE.Shape().moveTo(-0.9, 0.34).lineTo(-0.6, 0).lineTo(0.6, 0).lineTo(0.9, 0.34).closePath()
+  const GEO = {
+    heart: flat(heartShape, 0.2), heartTop: flat(heartShape, 0.1).scale(0.62, 1, 0.62).translate(0, 0.23, 0),
+    star: flat(starShape, 0.2), starTop: flat(starShape, 0.1).scale(0.6, 1, 0.6).translate(0, 0.23, 0),
+    hull: new THREE.ExtrudeGeometry(hullShape, { depth: 0.5, bevelEnabled: false }).translate(0, 0, -0.25),
+    leaf: new THREE.ConeGeometry(0.17, 0.3, 4).translate(0, 0.15, 0),
+    flower: new THREE.SphereGeometry(0.075, 10, 8),
+    stick: new THREE.CylinderGeometry(0.012, 0.012, 0.75, 6).translate(0, 0.375, 0),
+    sail: new THREE.BufferGeometry().setFromPoints([[0, 0, 0], [0.55, 0, 0], [0, 0.85, 0]].map((p) => new THREE.Vector3(...p))),
+    mast: new THREE.CylinderGeometry(0.015, 0.015, 0.9, 6).translate(0, 0.45, 0),
+  }
+  const mat = (c, o) => new THREE.MeshBasicMaterial({ color: c, ...o })
+  const leafMat = mat('#3f9d4a'), flowerMat = mat('#ffb703'), stickMat = mat('#8b5a2b'), sailMat = mat('#fff3d0', { side: THREE.DoubleSide })
+
+  // ตัวกระทงแต่ละแบบ: คืนความสูงของพื้นที่วางเทียน (top) กับวงที่วางดอกไม้ (rx, rz)
+  const MODELS = {
+    lotus(g, color) {
+      g.add(new THREE.Mesh(baseGeo, baseMat))
+      for (const [n, r, tilt, y, s] of [[14, 0.42, 0.9, 0.08, 1], [10, 0.27, 0.35, 0.16, 0.85]]) {
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + (tilt > 0.5 ? 0 : 0.3)
+          const p = new THREE.Mesh(petalGeo, petalMat(color))
+          p.position.set(Math.cos(a) * r, y, Math.sin(a) * r)
+          p.rotation.set(0, -a, 0); p.rotateZ(-tilt); p.scale.set(1, s, 1)
+          g.add(p)
+        }
+      }
+      return { top: 0.1, rx: 0.62, rz: 0.62 }
+    },
+    banana(g, color) { // ใบตองพับแหลมซ้อนสองชั้น
+      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.62, 0.2, 28), baseMat))
+      for (const [n, r, m, y] of [[18, 0.52, leafMat, 0.1], [11, 0.34, petalMat(color), 0.16]]) {
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2, p = new THREE.Mesh(GEO.leaf, m)
+          p.position.set(Math.cos(a) * r, y, Math.sin(a) * r); p.rotation.set(0, -a, 0); p.rotateZ(-0.55)
+          g.add(p)
+        }
+      }
+      return { top: 0.1, rx: 0.7, rz: 0.7 }
+    },
+    heart(g, color) {
+      g.add(new THREE.Mesh(GEO.heart, mat(color)))
+      g.add(new THREE.Mesh(GEO.heartTop, mat(new THREE.Color(color).lerp(new THREE.Color('#fff'), 0.5))))
+      return { top: 0.32, rx: 0.55, rz: 0.4 }
+    },
+    star(g, color) {
+      g.add(new THREE.Mesh(GEO.star, mat(color)))
+      g.add(new THREE.Mesh(GEO.starTop, mat(new THREE.Color(color).lerp(new THREE.Color('#fff'), 0.5))))
+      return { top: 0.32, rx: 0.5, rz: 0.5 }
+    },
+    boat(g, color) {
+      g.add(new THREE.Mesh(GEO.hull, mat(color)))
+      const mast = new THREE.Mesh(GEO.mast, stickMat); mast.position.set(-0.35, 0.34, 0); g.add(mast)
+      const sail = new THREE.Mesh(GEO.sail, sailMat); sail.position.set(-0.33, 0.45, 0); g.add(sail)
+      return { top: 0.34, rx: 0.5, rz: 0.2, cx: 0.25 }
+    },
+  }
+
+  function buildKrathong(color, model = 'lotus', deco = 'none') {
     const g = new THREE.Group()
-    g.add(new THREE.Mesh(baseGeo, baseMat))
-    for (const [n, r, tilt, y, s] of [[14, 0.42, 0.9, 0.08, 1], [10, 0.27, 0.35, 0.16, 0.85]]) {
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2 + (tilt > 0.5 ? 0 : 0.3)
-        const p = new THREE.Mesh(petalGeo, petalMat(color))
-        p.position.set(Math.cos(a) * r, y, Math.sin(a) * r)
-        p.rotation.set(0, -a, 0); p.rotateZ(-tilt); p.scale.set(1, s, 1)
-        g.add(p)
+    const { top, rx, rz, cx = 0 } = (MODELS[model] ?? MODELS.lotus)(g, color)
+    const candle = new THREE.Mesh(candleGeo, candleMat); candle.position.set(cx, top + 0.175, 0); g.add(candle)
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: '#ffb14a', blending: THREE.AdditiveBlending, depthWrite: false }))
+    flame.position.set(cx, top + 0.48, 0); flame.scale.setScalar(0.9); g.add(flame)
+    g.userData.flame = flame
+    if (deco === 'flower' || deco === 'both') {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2, f = new THREE.Mesh(GEO.flower, flowerMat)
+        f.position.set(Math.cos(a) * rx, top + 0.02, Math.sin(a) * rz); g.add(f)
       }
     }
-    const candle = new THREE.Mesh(candleGeo, candleMat); candle.position.y = 0.27; g.add(candle)
-    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: '#ffb14a', blending: THREE.AdditiveBlending, depthWrite: false }))
-    flame.position.y = 0.58; flame.scale.setScalar(0.9); g.add(flame)
-    g.userData.flame = flame
+    if (deco === 'incense' || deco === 'both') {
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 + 0.5, s = new THREE.Group()
+        s.position.set(cx + Math.cos(a) * 0.12, top, Math.sin(a) * 0.12)
+        s.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35)
+        s.add(new THREE.Mesh(GEO.stick, stickMat))
+        const tip = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: '#ff3b1f', blending: THREE.AdditiveBlending, depthWrite: false }))
+        tip.position.y = 0.75; tip.scale.setScalar(0.2); s.add(tip); g.add(s)
+      }
+    }
     return g
   }
 
@@ -115,7 +190,7 @@ if (renderer) {
   function add(k, fresh) {
     if (seen.has(k.id)) return
     seen.add(k.id)
-    const g = buildKrathong(k.color); scene.add(g)
+    const g = buildKrathong(k.color, k.model, k.deco); scene.add(g)
     const label = document.createElement('div'); label.className = 'lbl'; label.textContent = k.name + ': ' + k.wish // textContent = กัน XSS
     labels.appendChild(label)
     items.push({
@@ -192,7 +267,7 @@ if (renderer) {
     try {
       const r = await fetch('/api/krathongs', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: form.name.value, wish: form.wish.value, color: form.c.value }),
+        body: JSON.stringify({ name: form.name.value, wish: form.wish.value, color: form.c.value, model: form.model.value, deco: form.deco.value }),
       })
       if (!r.ok) throw 0
       add(await r.json(), true); form.wish.value = ''

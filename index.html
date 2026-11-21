@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ลอยกระทงออนไลน์</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;height:100vh;overflow:hidden;font-family:system-ui,"Noto Sans Thai",sans-serif;color:#fff;
+ background:linear-gradient(#050818 0%,#13205a 55%,#0a1a3a 55%,#050d22 100%)}
+#moon{position:absolute;top:6vh;right:10vw;width:80px;height:80px;border-radius:50%;background:#fff8d6;box-shadow:0 0 60px 20px #fff8d655}
+.star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:tw 3s infinite alternate}
+@keyframes tw{to{opacity:.2}}
+#river{position:absolute;left:0;right:0;top:55%;bottom:0;overflow:hidden}
+.k{position:absolute;text-align:center;font-size:12px;width:120px;pointer-events:none}
+.k .wish{background:#0008;border-radius:8px;padding:2px 6px;margin-bottom:2px;word-break:break-word}
+.k .flame{font-size:20px;animation:fl .4s infinite alternate}
+@keyframes fl{to{transform:scale(1.15) rotate(4deg);opacity:.85}}
+.k .base{height:16px;border-radius:0 0 40px 40px;margin:0 20px}
+#panel{position:absolute;left:50%;top:14vh;transform:translateX(-50%);width:min(92vw,360px);
+ background:#0009;backdrop-filter:blur(6px);border-radius:16px;padding:16px;text-align:center}
+h1{margin:0 0 10px;font-size:22px}
+input,button{width:100%;margin:4px 0;padding:10px;border-radius:8px;border:0;font:inherit}
+button{background:#ff9f1c;color:#000;font-weight:700;cursor:pointer}
+#colors{display:flex;gap:8px;justify-content:center;margin:6px 0}
+#colors label{width:32px;height:32px;border-radius:50%;cursor:pointer;border:3px solid transparent}
+#colors input{display:none}
+#colors input:checked+span{outline:3px solid #fff}
+#colors span{display:block;width:100%;height:100%;border-radius:50%}
+</style>
+</head>
+<body>
+<div id="moon"></div>
+<div id="river"></div>
+<form id="panel">
+ <h1>🪔 ลอยกระทงออนไลน์</h1>
+ <input id="name" placeholder="ชื่อของคุณ" maxlength="20" required>
+ <input id="wish" placeholder="พรที่อยากขอ" maxlength="40" required>
+ <div id="colors"></div>
+ <button>ลอยกระทง</button>
+</form>
+<script>
+const COLORS=["#ff6b9d","#ffd23f","#6bcB77","#4d96ff","#c77dff"];
+const KEY="krathongs";
+const river=document.getElementById("river"),sky=document.body;
+const esc=s=>s.replace(/[&<>"']/g,c=>"&#"+c.charCodeAt(0)+";"); // wish text is user input -> escape
+
+for(let i=0;i<70;i++){const s=document.createElement("div");s.className="star";
+ s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*50}vh;animation-delay:${Math.random()*3}s`;sky.appendChild(s)}
+
+document.getElementById("colors").innerHTML=COLORS.map((c,i)=>
+ `<label><input type="radio" name="c" value="${c}" ${i?"":"checked"}><span style="background:${c}"></span></label>`).join("");
+
+const items=[];
+function add(k){
+ const el=document.createElement("div");el.className="k";
+ el.innerHTML=`<div class="wish">${esc(k.name)}: ${esc(k.wish)}</div><div class="flame">🔥</div><div class="base" style="background:${k.color}"></div>`;
+ river.appendChild(el);
+ items.push({el,x:k.fresh?-130:Math.random()*innerWidth,y:Math.random()*(innerHeight*.45-80),v:.3+Math.random()*.4,p:Math.random()*6});
+}
+function tick(t){
+ for(const k of items){k.x+=k.v;if(k.x>innerWidth)k.x=-130;
+  k.el.style.transform=`translate(${k.x}px,${k.y+Math.sin(t/700+k.p)*6}px)`}
+ requestAnimationFrame(tick)}
+
+JSON.parse(localStorage[KEY]||"[]").forEach(add);
+requestAnimationFrame(tick);
+
+document.getElementById("panel").onsubmit=e=>{
+ e.preventDefault();
+ const k={name:name.value.trim(),wish:wish.value.trim(),color:e.target.c.value,fresh:true};
+ const all=JSON.parse(localStorage[KEY]||"[]");all.push({...k,fresh:false});
+ localStorage[KEY]=JSON.stringify(all.slice(-30)); // shortcut: per-browser only, add a backend to share between visitors
+ add(k);wish.value="";
+};
+</script>
+</body>
+</html>
